@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB:?POSTGRES_DB is required}
+      DATABASE_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TZ: ${TZ:-UTC}
+      LLM_CHAT_COMPLETIONS_URL: ${LLM_CHAT_COMPLETIONS_URL:?Set LLM_CHAT_COMPLETIONS_URL in .env}
+      LLM_MODEL: ${LLM_MODEL:?Set LLM_MODEL in .env}
+      LLM_API_KEY: ${LLM_API_KEY:?Set LLM_API_KEY in .env}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-30000}
+      TRANSCRIPTION_BASE_URL: http://transcription:8000
+      TRANSCRIPTION_TIMEOUT_MS: ${TRANSCRIPTION_TIMEOUT_MS:-180000}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      transcription:
+        condition: service_healthy
+
+  transcription:
+    build: ./transcription-service
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-}
+      WHISPER_MODEL_DIR: /models
+    volumes:
+      - whisper_models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 50
+      start_period: 120s
+
+volumes:
+  postgres_data:
+  whisper_models:
