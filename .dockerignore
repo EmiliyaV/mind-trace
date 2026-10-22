@@ -1,0 +1,12 @@
+.git
+.gradle
+.idea
+.env
+**/build
+**/__pycache__
+*.iml
+.stage2-backup/
+.stage3-backup/
+.stage4-backup/
+.stage5-backup/
+.stage6-backup/

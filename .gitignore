@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+.idea/
+.env
+.env.*.local
+build/
+**/build/
+out/
+*.iml
+.DS_Store
+__pycache__/
